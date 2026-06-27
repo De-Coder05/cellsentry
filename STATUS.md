@@ -14,8 +14,8 @@ line.**
 
 ## TL;DR for the team
 
-- **Where we are:** Week 1 ✅ · Week 2 ✅ · **Week 3 (UI) = next** · Week 4 = pending.
-- **~50% of the timeline done — and the hardest part (the risk engine + agents) is already built and working.** What remains is mostly UI, an evaluation harness, and submission assets.
+- **Where we are:** Week 1 ✅ · Week 2 ✅ · Week 3 ✅ · **Week 4 (proof + submission) = next**.
+- **~75% of the timeline done — the risk engine, the Claude agents, and the war-room UI are all built and working.** What remains is the evaluation harness (real metrics) and submission assets (deck, architecture diagram, demo video).
 - **It works today.** A China-graphite-export signal flows through the graph and flags both EV products with a **21-day lead time**, a full risk path, an exec brief, and mitigation actions — verified end-to-end on a live Neo4j cloud DB.
 - **You can run it in ~3 minutes with zero infrastructure** (in-memory fallback, no database or API key needed) — see *Run it locally* below.
 
@@ -27,7 +27,7 @@ line.**
 |---|---|---|
 | **W1** | End-to-end vertical slice: graph → risk → API → graph UI | ✅ **Done & verified** |
 | **W2** | Composite risk engine + lead-time + Claude agents (the "brain") | ✅ **Done & verified** |
-| **W3** | Next.js "war-room" UI: signal feed, live graph reaction, alert panel, heatmap | ⏭️ **Next** |
+| **W3** | Next.js "war-room" UI: signal feed, live graph reaction, alert panel | ✅ **Done** (designed in Stitch, built in Next.js) |
 | **W4** | Quality+traceability module, compliance/RAG, **evaluation harness** (real metrics), pitch deck, architecture diagram, demo video | ⏳ Pending |
 
 **Deliverables required:** working prototype · architecture diagram · pitch deck · demo video.
@@ -142,11 +142,11 @@ curl -s -X POST localhost:8000/api/scenario \
 
 ## What's left
 
-### Week 3 — the war-room UI (next)
-Signal feed (click an event to fire a scenario) → graph reacts live (affected
-nodes spike, risk path highlights) → alert panel (products, risk delta, lead
-time, brief) → risk heatmap + product drill-down. The backend already exposes
-everything this needs.
+### Week 3 — the war-room UI ✅ (done)
+Three-pane dashboard: signal feed → click an event → the supply graph reacts
+live (hit nodes glow red, the risk path animates) → alert panel (affected
+products, risk delta, lead time, brief, recommended actions). Designed in
+Google Stitch, built in Next.js + react-force-graph against the live API.
 
 ### Week 4 — depth, proof & polish
 - **Quality + traceability** module (cell → pack → vehicle).

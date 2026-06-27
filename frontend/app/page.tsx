@@ -1,69 +1,107 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import AlertPanel from "@/components/AlertPanel";
+import SignalFeed from "@/components/SignalFeed";
 import SupplyGraph from "@/components/SupplyGraph";
-import { fetchGraph, type GraphResponse } from "@/lib/api";
+import TopBar from "@/components/TopBar";
+import {
+  fetchEvents,
+  fetchGraph,
+  runScenario,
+  type GraphResponse,
+  type ScenarioResponse,
+  type SignalEvent,
+} from "@/lib/api";
 
 export default function Home() {
-  const [data, setData] = useState<GraphResponse | null>(null);
+  const [baseline, setBaseline] = useState<GraphResponse | null>(null);
+  const [events, setEvents] = useState<SignalEvent[]>([]);
+  const [scenario, setScenario] = useState<ScenarioResponse | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [scenarioLoading, setScenarioLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchGraph()
-      .then(setData)
-      .catch((e) => setError(String(e)));
+    Promise.all([fetchGraph(), fetchEvents()])
+      .then(([g, e]) => {
+        setBaseline(g);
+        setEvents(e);
+      })
+      .catch((err) => setError(String(err)));
   }, []);
 
-  const topRisks = data
-    ? [...data.nodes].sort((a, b) => b.risk - a.risk).slice(0, 7)
-    : [];
+  const onSelect = (id: string) => {
+    setSelected(id);
+    setScenarioLoading(true);
+    runScenario([id])
+      .then(setScenario)
+      .catch((err) => setError(String(err)))
+      .finally(() => setScenarioLoading(false));
+  };
+
+  const onReset = () => {
+    setSelected(null);
+    setScenario(null);
+  };
+
+  const nodes = scenario?.nodes ?? baseline?.nodes ?? [];
+  const edges = scenario?.edges ?? baseline?.edges ?? [];
+
+  const hotIds = useMemo(() => {
+    const s = new Set<string>();
+    if (scenario) {
+      for (const n of scenario.nodes) {
+        if (n.baseline_risk != null && n.risk - n.baseline_risk >= 1) s.add(n.id);
+      }
+    }
+    return s;
+  }, [scenario]);
 
   return (
-    <main className="layout">
-      <section className="graph-pane">
-        {data ? (
-          <SupplyGraph data={data} />
-        ) : (
-          <div className="center">
-            {error ? `Error: ${error}` : "Loading supply graph…"}
+    <div className="app">
+      <TopBar hasScenario={!!scenario} onReset={onReset} />
+      <div className="main">
+        <SignalFeed
+          events={events}
+          selectedId={selected}
+          onSelect={onSelect}
+          loading={!baseline && !error}
+        />
+
+        <section className="graph-pane">
+          <div className="graph-title">Supply Graph</div>
+          <div className="legend">
+            <span>
+              <i style={{ background: "#10b981" }} /> Low
+            </span>
+            <span>
+              <i style={{ background: "#ee9800" }} /> Med
+            </span>
+            <span>
+              <i style={{ background: "#ff5d52" }} /> High
+            </span>
           </div>
-        )}
-      </section>
 
-      <aside className="panel">
-        <h1>CellSentry</h1>
-        <p className="subtitle">Battery supply-chain risk · Week 1 vertical slice</p>
+          {error && (
+            <div className="center error">
+              {error} — is the backend running on :8000?
+            </div>
+          )}
+          {!error && nodes.length === 0 && (
+            <div className="center muted">Loading supply graph…</div>
+          )}
+          {!error && nodes.length > 0 && (
+            <SupplyGraph nodes={nodes} edges={edges} hotIds={hotIds} />
+          )}
+        </section>
 
-        <div className="legend">
-          <span>
-            <i style={{ background: "#22c55e" }} /> Low
-          </span>
-          <span>
-            <i style={{ background: "#f59e0b" }} /> Medium
-          </span>
-          <span>
-            <i style={{ background: "#ef4444" }} /> High
-          </span>
-        </div>
-
-        <h2>Top risk nodes</h2>
-        <ul className="risklist">
-          {topRisks.map((n) => (
-            <li key={n.id}>
-              <span className={`dot ${n.risk_band}`} />
-              <span className="name">{n.label}</span>
-              {n.tier ? <span className="tier">T{n.tier}</span> : null}
-              <span className="score">{n.risk.toFixed(0)}</span>
-            </li>
-          ))}
-        </ul>
-
-        {data ? (
-          <p className="meta">
-            {data.meta.node_count} nodes · {data.meta.edge_count} edges
-          </p>
-        ) : null}
-      </aside>
-    </main>
+        <AlertPanel
+          alerts={scenario?.alerts ?? []}
+          hasScenario={!!scenario}
+          loading={scenarioLoading}
+        />
+      </div>
+    </div>
   );
 }
