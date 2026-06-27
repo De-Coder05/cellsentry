@@ -15,6 +15,9 @@ from ..models.schema import (
     ScenarioResponse,
 )
 from ..risk import engine
+from ..quality.inspection import generate_lots, trace_lot
+from ..quality.spc import flag_lots, supplier_status
+from ..eval.harness import run_all
 
 router = APIRouter()
 
@@ -71,6 +74,37 @@ def list_events() -> list[Event]:
 def scenario(req: ScenarioRequest) -> ScenarioResponse:
     """Apply the given events, recompute risk + lead time, return alerts + briefs."""
     return run_scenario(req.event_ids, req.generate_briefs)
+
+
+@router.get("/quality")
+def quality() -> dict:
+    """Incoming cell-inspection SPC: per-supplier drift status + flagged lots
+    with cell->pack->vehicle traceability."""
+    lots = flag_lots(generate_lots())
+    flagged = [l for l in lots if l["flagged"]]
+    return {
+        "suppliers": supplier_status(lots),
+        "lot_count": len(lots),
+        "flagged_count": len(flagged),
+        "flagged": [
+            {
+                "lot_id": l["lot_id"],
+                "supplier": l["supplier"],
+                "day": l["day"],
+                "capacity_mah": l["capacity_mah"],
+                "ir_mohm": l["ir_mohm"],
+                "reasons": l["reasons"],
+                "trace": trace_lot(l),
+            }
+            for l in flagged
+        ],
+    }
+
+
+@router.get("/eval")
+def evaluation() -> dict:
+    """Evaluation metrics: lead-time, product attribution, quality precision/recall."""
+    return run_all()
 
 
 @router.post("/seed")
